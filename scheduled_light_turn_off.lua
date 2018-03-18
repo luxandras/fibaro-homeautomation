@@ -4,7 +4,7 @@
 %% globals
 --]]
 
--- Hardcoded devise ID constants
+-- Hardcoded device ID constants
 local FURDO_AJTO_ID = 14
 local FURDO_MOZGAS_ID = 131
 local FURDO_MOZGAS2_ID = 155
