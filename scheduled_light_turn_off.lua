@@ -16,7 +16,7 @@ local ELOSZOBA_MOZGAS_ID = 161
 local ELOSZOBA_AJTO_ID = 16
 
 local lightsTable = {
-	furdo_mennyezeti = {id = 60, sensors = {FURDO_MOZGAS_ID, FURDO_MOZGAS2_ID}, room = "furdo"), -- handle doors?
+	furdo_mennyezeti = {id = 60, sensors = {FURDO_MOZGAS_ID, FURDO_MOZGAS2_ID}, room = "furdo"}, -- handle doors?
 	furdo_led = {id = 137, sensors = {FURDO_MOZGAS_ID, FURDO_MOZGAS2_ID}, room = "furdo"},
 	furdo_tukor = {id = 149, sensors = {FURDO_MOZGAS_ID, FURDO_MOZGAS2_ID}, room = "furdo"},
 	halo_asztali = {id = 173, sensors = {HALO_MOZGAS_ID}, room = "haloszoba"},
@@ -71,14 +71,14 @@ end -- f_queryLightStatus
 
 -- Loop through all lights. If it is on, turn off if based on setting of DECISON_BASE
 function f_turnOffLights(isDebug)
-	local 
-	fibaro:getValue(60, "value")
+	--local 
+	--fibaro:getValue(60, "value")
 end
 
 function f_RunScene()
 	local ok, presenceTable
 	ok, presenceTable = f_ReadGlobalJson(true,"vg_PresenceJson")
-	_queryLightStatus (true)
+	f_queryLightStatus (true)
 end
 
 f_RunScene()
