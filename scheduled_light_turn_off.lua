@@ -15,16 +15,19 @@ local KONYHA_MOZGAS_ID = 87
 local ELOSZOBA_MOZGAS_ID = 161
 local ELOSZOBA_AJTO_ID = 16
 
-local FURDO_MENNYEZETI_ID = 60
-local FURDO_LED_ID = 137
-local FURDO_TUKOR_ID = 149
-local HALO_ASZTALI_ID = 173
-local KONYHA_MENNYEZETI_ID = 48
-local KONYHA_PULT_ID = 39
-local ELOSZOBA_MENNYEZETI_ID = 97
-local ELOSZOBA_FOGAS_ID = 55
-local TAROLO_MENNYEZETI_ID = 43
-local TAROLO_SZEKRENY_ID = 45
+local lightsTable = {
+	furdo_mennyezeti = {id = 60, sensors = {FURDO_MOZGAS_ID, FURDO_MOZGAS2_ID}, room = "furdo"), -- handle doors?
+	furdo_led = {id = 137, sensors = {FURDO_MOZGAS_ID, FURDO_MOZGAS2_ID}, room = "furdo"},
+	furdo_tukor = {id = 149, sensors = {FURDO_MOZGAS_ID, FURDO_MOZGAS2_ID}, room = "furdo"},
+	halo_asztali = {id = 173, sensors = {HALO_MOZGAS_ID}, room = "haloszoba"},
+	konyha_mennyezeti = {id = 48, sensors = {KONYHA_MOZGAS_ID}, room = "konyha"},
+	konyha_pult = {id = 39, sensors = {KONYHA_MOZGAS_ID}, room = "konyha"},
+	eloszoba_mennyezeti = {id = 97, sensors = {ELOSZOBA_MOZGAS_ID}, room = "eloszoba"},
+	eloszoba_fogas = {id = 55, sensors = {ELOSZOBA_MOZGAS_ID}, room = "eloszoba"},
+	tarolo_mennyezeti = {id = 43, sensors = {ELOSZOBA_MOZGAS_ID}, room = "eloszoba"},
+	tarolo_szekreny = {id = 45, sensors = {ELOSZOBA_MOZGAS_ID}, room = "eloszoba"}
+}
+
 
 -- Constant determining what to base lights off decision on:
 -- 0 - sensors only, 1 - presence table
@@ -56,17 +59,26 @@ function f_ReadGlobalJson(isDebug,varName)
     f_Debug("red","f_ReadGlobalJson: decode failed with error:" .. data)
   end
   return ok, data
-end
+end -- f_ReadGlobalJson 
 
+-- Query status of all ligths and stores it
+function f_queryLightStatus (isDebug)
+	for i, light in ipairs(lightsTable) do
+		f_Debug("white","f_queryLightStatus: " .. light)
+		--fibaro:getValue(60, "value")
+	end
+end -- f_queryLightStatus
 
 -- Loop through all lights. If it is on, turn off if based on setting of DECISON_BASE
 function f_turnOffLights(isDebug)
-	
+	local 
+	fibaro:getValue(60, "value")
 end
 
 function f_RunScene()
 	local ok, presenceTable
 	ok, presenceTable = f_ReadGlobalJson(true,"vg_PresenceJson")
+	_queryLightStatus (true)
 end
 
 f_RunScene()
