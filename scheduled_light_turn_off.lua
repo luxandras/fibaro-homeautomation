@@ -16,9 +16,9 @@ local ELOSZOBA_MOZGAS_ID = 161
 local ELOSZOBA_AJTO_ID = 16
 
 local lightsTable = {
-	furdo_mennyezeti = {id = 60, sensors = {FURDO_MOZGAS_ID, FURDO_MOZGAS2_ID}, room = "furdo"}, -- handle doors?
-	furdo_led = {id = 137, sensors = {FURDO_MOZGAS_ID, FURDO_MOZGAS2_ID}, room = "furdo"},
-	furdo_tukor = {id = 149, sensors = {FURDO_MOZGAS_ID, FURDO_MOZGAS2_ID}, room = "furdo"},
+	furdo_mennyezeti = {id = 60, sensors = {FURDO_MOZGAS2_ID}, room = "furdo"}, -- handle doors?
+	furdo_led = {id = 137, sensors = {FURDO_MOZGAS2_ID}, room = "furdo"},
+	furdo_tukor = {id = 149, sensors = {FURDO_MOZGAS2_ID}, room = "furdo"},
 	halo_asztali = {id = 173, sensors = {HALO_MOZGAS_ID}, room = "haloszoba"},
 	konyha_mennyezeti = {id = 48, sensors = {KONYHA_MOZGAS_ID}, room = "konyha"},
 	konyha_pult = {id = 39, sensors = {KONYHA_MOZGAS_ID}, room = "konyha"},
@@ -27,11 +27,15 @@ local lightsTable = {
 	tarolo_mennyezeti = {id = 43, sensors = {ELOSZOBA_MOZGAS_ID}, room = "eloszoba"},
 	tarolo_szekreny = {id = 45, sensors = {ELOSZOBA_MOZGAS_ID}, room = "eloszoba"}
 }
-
+-- Id of presence detector scene for broken global value reinit
+PRESENCE_DETECTOR_SCENE_ID = 10
 
 -- Constant determining what to base lights off decision on:
--- 0 - sensors only, 1 - presence table
-local DECISON_BASE = 0
+-- SENSORS_ONLY / PRESENCE_TABLE
+local DECISON_BASE = SENSORS_ONLY
+
+-- Constant determining light timeout i.e. how much time do we allow since last move (s)
+local LIGHT_TIMEOUT = 300
 
 -- Function for advanced debug message
 function f_Debug(color, message)
@@ -61,24 +65,71 @@ function f_ReadGlobalJson(isDebug,varName)
   return ok, data
 end -- f_ReadGlobalJson 
 
--- Query status of all ligths and stores it
+-- Query status of all ligths and stores it. Note that larger than 0 is ON.
 function f_queryLightStatus (isDebug)
-	for i, light in ipairs(lightsTable) do
-		f_Debug("white","f_queryLightStatus: " .. light)
-		--fibaro:getValue(60, "value")
+	for lightKey, _ in pairs(lightsTable) do
+		lightsTable[lightKey].status = fibaro:getValue(lightsTable[lightKey].id, "value")
+		if isDebug then f_Debug("white","f_queryLightStatus: " ..lightKey .. ": ".. lightsTable[lightKey].status) end
 	end
 end -- f_queryLightStatus
 
--- Loop through all lights. If it is on, turn off if based on setting of DECISON_BASE
-function f_turnOffLights(isDebug)
-	--local 
-	--fibaro:getValue(60, "value")
-end
+-- Return presence based on current sensors and last movement time and LIGHT_TIMEOUT
+function f_getSensorStatus(isDebug,lightKey)
+	local breached = 0
+	local lastBreached = -1
+	for sensorKey, sensorId in pairs(lightsTable[lightKey].sensors) do
+		local sensorLastBreached = os.time() - fibaro:getValue(sensorId, "lastBreached")
+		if isDebug then f_Debug("white","f_getSensorStatus: " .. lightKey .. " ".. sensorKey .. " sensorLastBreached: " .. sensorLastBreached) end
+		if (lastBreached == -1) or (sensorLastBreached < lastBreached) then
+			lastBreached = sensorLastBreached
+		end
+	end
+	if lastBreached < LIGHT_TIMEOUT then breached = 1 end
+	return breached, lastBreached
+end -- f_getSensorStatus
 
+-- Loop through all lights. If it is on, turn off if based on setting of DECISON_BASE
+function f_turnOffLights(isDebug, presenceTable)
+	for lightKey, _ in pairs(lightsTable) do
+		if (tonumber(lightsTable[lightKey].status) > 0) then
+			local functionPresence = presenceTable[lightsTable[lightKey].room].presence
+			local functionTime = os.time() - presenceTable[lightsTable[lightKey].room].time
+			local sensorPresence, sensorTime = f_getSensorStatus(isDebug,lightKey)
+			local message = " Keep alight "
+			if (DECISON_BASE == SENSORS_ONLY) then
+				if sensorPresence == 0 then
+					fibaro:call(lightsTable[lightKey].id, "turnOff")
+					message = " Turn off (sensor) "
+				end
+			elseif (DECISON_BASE == PRESENCE_TABLE) then
+				if functionPresence == 0 then
+					fibaro:call(lightsTable[lightKey].id, "turnOff")
+					message = " Turn off (function) "
+				end
+			else f_Debug("red","f_turnOffLights: unhandled control")
+			end
+			f_Debug("white","f_turnOffLights: " ..lightKey .. message .. ": funcPres: ".. functionPresence ..
+				" funcTime: " .. functionTime .. " sensPres: " .. sensorPresence ..
+				" sensTime: " .. sensorTime)
+		end
+	end
+end -- f_turnOffLight
+
+--Note: we could do it in one loop as well
 function f_RunScene()
 	local ok, presenceTable
-	ok, presenceTable = f_ReadGlobalJson(true,"vg_PresenceJson")
-	f_queryLightStatus (true)
+	ok, presenceTable = f_ReadGlobalJson(false,"vg_PresenceJson")
+	if not ok then
+    	fibaro:startScene(PRESENCE_DETECTOR_SCENE_ID) -- This will reinit
+		f_Debug("red","f_RunScene: presenceTable is broken")
+		return
+  	end
+	f_queryLightStatus (false)
+	f_turnOffLights(false, presenceTable)
+	
 end
 
+local startTime = os.clock()
 f_RunScene()
+local elapsedTime = os.clock() - startTime
+f_Debug("white","elapsedTime: " .. elapsedTime)
