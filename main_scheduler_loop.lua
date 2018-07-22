@@ -289,6 +289,16 @@ add(
 )
 
 add(
+  "1 * * * *",
+  true,
+  -- These will be run
+  function() 
+    fibaro:startScene(22)
+  end, 
+  "At 1 minutes every hour: Calculate Water Usage"
+)
+
+add(
   "3/10 * * * *",
   true,
   -- These will be run
