@@ -279,6 +279,16 @@ add(
 )
 
 add(
+  "0 8 * * *",
+  true,
+  -- These will be run
+  function() 
+    fibaro:startScene(21)
+  end, 
+  "At 8AM every day: Check Battery Status"
+)
+
+add(
   "3/10 * * * *",
   true,
   -- These will be run
@@ -320,40 +330,40 @@ add(
 
 -- Fűtésidőzítések
 add(
-  "0 5 * * mon-fri",
+  "0 5 * * mon-sun",
   true,
   -- These will be run
   function() 
     fibaro:startScene(13)
   end, 
-  "At 5AM each weekday: Switch presence to Zuhanyzás"
+  "At 5AM each day: Switch presence to Zuhanyzás"
 )
 add(
-  "0 9 * * mon-fri",
+  "0 9 * * mon-sun",
   true,
   -- These will be run
   function() 
     fibaro:startScene(15)
   end, 
-  "At 9AM each weekday: Switch presence to Üres lakás"
+  "At 9AM each day: Switch presence to Üres lakás"
 )
 add(
-  "0 15 * * mon-fri",
+  "0 15 * * mon-sun",
   true,
   -- These will be run
   function() 
     fibaro:startScene(14)
   end, 
-  "At 3PM each weekday: Switch presence to Otthon"
+  "At 3PM each day: Switch presence to Otthon"
 )
 add(
-  "0 23 * * mon-fri",
+  "0 23 * * mon-sun",
   true,
   -- These will be run
   function() 
     fibaro:startScene(12)
   end, 
-  "At 11PM each weekday: Switch presence to Alvás hűvösben"
+  "At 11PM each day: Switch presence to Alvás hűvösben"
 )
 run()
 
