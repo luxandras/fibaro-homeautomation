@@ -41,8 +41,8 @@ function f_getDisplayedStats(isDebug)
 	fibaro:call(thisId, "setProperty","ui.absolute.value", "Teljes vízfogyasztás: ".. waterConsumptionTable.absoluteConsumption .." liter")
 	fibaro:call(thisId, "setProperty","ui.details.value", 
 		" Óra: "..waterConsumptionTable.absoluteConsumption - waterConsumptionTable.consumptionAtLastHour .." liter " ..
-		"\n Napi: "..waterConsumptionTable.absoluteConsumption - waterConsumptionTable.consumptionAtLastMidnight .." liter " .. 
-		"\n Havi: "..waterConsumptionTable.absoluteConsumption - waterConsumptionTable.consumptionAtLastMonthChange .." liter ")
+		"Napi: "..waterConsumptionTable.absoluteConsumption - waterConsumptionTable.consumptionAtLastMidnight .." liter " .. 
+		"Havi: "..waterConsumptionTable.absoluteConsumption - waterConsumptionTable.consumptionAtLastMonthChange .." liter ")
 	fibaro:call(thisId, "setProperty","ui.price.value", "Havi alapdíj: "..PRICE_PER_MONTH .." Ft  Vízdíj: " .. PRICE_PER_CUBIC_METER .. " Ft/m3")
 	fibaro:call(thisId, "setProperty","ui.bill.value", "Havi vízszámla: "..
 		(waterConsumptionTable.absoluteConsumption - waterConsumptionTable.consumptionAtLastMonthChange)*PRICE_PER_CUBIC_METER/1000 +  PRICE_PER_MONTH .." Ft")	

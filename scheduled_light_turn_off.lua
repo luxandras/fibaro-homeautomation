@@ -84,7 +84,7 @@ function f_getSensorStatus(isDebug,lightKey)
 			lastBreached = sensorLastBreached
 		end
 	end
-	if lastBreached < LIGHT_TIMEOUT then breached = 1 end
+	if lastBreached < LIGHT_TIMEOUT then breached = 1 end --Also add here: breached if current status IS breached
 	return breached, lastBreached
 end -- f_getSensorStatus
 
