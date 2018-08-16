@@ -1,5 +1,6 @@
 --[[
 %% properties
+14 value
 %% events
 %% globals
 --]]
@@ -35,7 +36,8 @@ PRESENCE_DETECTOR_SCENE_ID = 10
 local DECISON_BASE = SENSORS_ONLY
 
 -- Constant determining light timeout i.e. how much time do we allow since last move (s)
-local LIGHT_TIMEOUT = 300
+local LIGHT_TIMEOUT = 300     -- Wait triggered by scheduler
+local SHORT_LIGHT_TIMEOUT = 12 -- Wait triggered by closing door. Can't be shorter than sensor alarm cancellation delay
 
 -- Function for advanced debug message
 function f_Debug(color, message)
@@ -65,6 +67,47 @@ function f_ReadGlobalJson(isDebug,varName)
   return ok, data
 end -- f_ReadGlobalJson 
 
+function f_processSourceTrigger(isDebug)
+	local trigger = fibaro:getSourceTrigger()
+    local deviceID = -1
+  	if (trigger['type'] == 'property') then
+    	deviceID = trigger['deviceID']
+      	if isDebug then f_Debug("white","f_processSourceTrigger: Source device = " .. 
+        	deviceID) end
+	elseif (trigger['type'] == 'global') then
+    	if isDebug then f_Debug("white","f_processSourceTrigger: Global variable source = " ..
+        	trigger['name']) end
+	elseif (trigger['type'] == 'other') then
+  		if isDebug then f_Debug("white","f_processSourceTrigger: Other source.") end
+	end
+    return deviceID;
+end -- f_processSourceTrigger
+
+function f_getDeviceAndRoom(isDebug, deviceID)
+	local room = "dummy"
+	local device ="dummy"
+	local door = "dummy"
+    if (deviceID == FURDO_AJTO_ID) then room = "furdo"; device = "ajto"
+        elseif (deviceID == FURDO_MOZGAS_ID) then room = "furdo"; device = "mozgas"
+    	elseif (deviceID == FURDO_MOZGAS2_ID) then room = "furdo"; device = "mozgas2"
+		elseif (deviceID == FURDO_AJTO_ID) then room = "furdo"; device = "ajto"; door = "furdoajto"
+        elseif (deviceID == HALO_MOZGAS_ID) then room = "haloszoba"; device = "mozgas"
+  		elseif (deviceID == NAPPALI_MOZGAS_ID) then room = "nappali"; device = "mozgas"
+    	elseif (deviceID == NAPPALI_MOZGAS2_ID) then room = "nappali"; device = "mozgas2"
+        elseif (deviceID == KONYHA_MOZGAS_ID) then room = "konyha"; device = "mozgas"
+    	elseif (deviceID == ELOSZOBA_MOZGAS_ID) then room = "eloszoba"; device = "mozgas"
+        elseif (deviceID == ELOSZOBA_AJTO_ID) then room = "eloszoba"; device = "ajto"; door = "bejaratiajto"
+  		else f_Debug("red", "f_processSourceTrigger: DeviceID not handled: " ..
+    			deviceID); 
+  			return "dummy", -1
+	end
+	
+	value = tonumber(fibaro:getValue(deviceID, "value"))
+	if isDebug then f_Debug("white", "f_processSourceTrigger: ".. device .. 
+    	" in " .. room .." reports " .. value) end
+	return device, room, value
+end -- f_getDeviceAndRoom
+
 -- Query status of all ligths and stores it. Note that larger than 0 is ON.
 function f_queryLightStatus (isDebug)
 	for lightKey, _ in pairs(lightsTable) do
@@ -73,28 +116,35 @@ function f_queryLightStatus (isDebug)
 	end
 end -- f_queryLightStatus
 
--- Return presence based on current sensors and last movement time and LIGHT_TIMEOUT
-function f_getSensorStatus(isDebug,lightKey)
+-- Return presence based on current sensors and last movement time and LIGHT_TIMEOUT (scheduler) or SHORT_LIGHT_TIMEOUT (device eg closing door)
+function f_getSensorStatus(isDebug,lightKey,shortTimeout)
 	local breached = 0
 	local lastBreached = -1
+	local timeout = LIGHT_TIMEOUT
+	if (shortTimeout) then timeout = SHORT_LIGHT_TIMEOUT end 
 	for sensorKey, sensorId in pairs(lightsTable[lightKey].sensors) do
 		local sensorLastBreached = os.time() - fibaro:getValue(sensorId, "lastBreached")
-		if isDebug then f_Debug("white","f_getSensorStatus: " .. lightKey .. " ".. sensorKey .. " sensorLastBreached: " .. sensorLastBreached) end
-		if (lastBreached == -1) or (sensorLastBreached < lastBreached) then
-			lastBreached = sensorLastBreached
-		end
+		local sensorNowBreached = tonumber(fibaro:getValue(sensorId, "value"))
+		if true then f_Debug("white","f_getSensorStatus: " .. lightKey .. " ".. sensorKey .. 
+			" sensorLastBreached: " .. sensorLastBreached .. " value: " .. sensorNowBreached) end --remove DEBUG
+		if (sensorLastBreached < timeout or sensorNowBreached == 1) then breached = 1 end 
+		if (lastBreached == -1 or sensorLastBreached < lastBreached) then lastBreached = sensorLastBreached end
 	end
-	if lastBreached < LIGHT_TIMEOUT then breached = 1 end --Also add here: breached if current status IS breached
 	return breached, lastBreached
 end -- f_getSensorStatus
 
 -- Loop through all lights. If it is on, turn off if based on setting of DECISON_BASE
-function f_turnOffLights(isDebug, presenceTable)
+function f_turnOffLights(isDebug, presenceTable, room)
 	for lightKey, _ in pairs(lightsTable) do
 		if (tonumber(lightsTable[lightKey].status) > 0) then
 			local functionPresence = presenceTable[lightsTable[lightKey].room].presence
 			local functionTime = os.time() - presenceTable[lightsTable[lightKey].room].time
-			local sensorPresence, sensorTime = f_getSensorStatus(isDebug,lightKey)
+			local sensorPresence, sensorTime
+			local shortTimeout = false 
+			if (room == lightsTable[lightKey].room) then
+				shortTimeout = true
+			end
+			sensorPresence, sensorTime = f_getSensorStatus(isDebug,lightKey, shortTimeout)
 			local message = " Keep alight "
 			if (DECISON_BASE == SENSORS_ONLY) then
 				if sensorPresence == 0 then
@@ -117,6 +167,7 @@ end -- f_turnOffLight
 
 --Note: we could do it in one loop as well
 function f_RunScene()
+
 	local ok, presenceTable
 	ok, presenceTable = f_ReadGlobalJson(false,"vg_PresenceJson")
 	if not ok then
@@ -124,8 +175,25 @@ function f_RunScene()
 		f_Debug("red","f_RunScene: presenceTable is broken")
 		return
   	end
+	
+	local room = "dummy"
+    local deviceID 
+	local device
+	local value
+    deviceID = f_processSourceTrigger(false)
 	f_queryLightStatus (false)
-	f_turnOffLights(false, presenceTable)
+	
+	if (deviceID == -1) then
+		-- Triggered manually or by scheduler
+		f_turnOffLights(false, presenceTable, room) --Room is dummy in scheduler case
+	else
+		-- Triggered by device	
+		fibaro:sleep(SHORT_LIGHT_TIMEOUT*1000);
+		device, room, value = f_getDeviceAndRoom(false, deviceID, value)	
+		if (device == "ajto" and value == 0) then --closed, triggered by change, so closed now
+			f_turnOffLights(false, presenceTable, room) --Room is dummy in scheduler case
+		end
+	end
 	
 end
 
